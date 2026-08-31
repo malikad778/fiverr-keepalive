@@ -1,0 +1,24 @@
+# Fiverr Keepalive — Git Ignore
+.env
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+session/store.db
+session/profile/
+logs/*.log
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.swp
+*.swo
+chrome_debug_profile/
+*.tar.gz
+setup.log
+/session/
+!/session/.gitkeep
