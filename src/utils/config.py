@@ -48,6 +48,10 @@ def load_config(path: str | None = None) -> dict:
         "username": username,
         "email": os.getenv("FIVERR_EMAIL", ""),
         "password": os.getenv("FIVERR_PASSWORD", ""),
+        # Google SSO — used by challenge recovery ("Continue with Google").
+        # google_email defaults to the Fiverr email when unset.
+        "google_email": os.getenv("GOOGLE_EMAIL", "") or os.getenv("FIVERR_EMAIL", ""),
+        "google_password": os.getenv("GOOGLE_PASSWORD", ""),
         "secret_key": os.getenv("SECRET_KEY", ""),
         "proxy_host": os.getenv("PROXY_HOST", ""),
         "proxy_port": int(os.getenv("PROXY_PORT", "22225")),
