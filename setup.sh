@@ -66,7 +66,12 @@ Description=Virtual Framebuffer (Xvfb)
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/Xvfb :99 -screen 0 1366x768x24 -ac +extension GLX +render -noreset
+# 1920x1080 so it covers the largest entry in the fingerprint pool
+# (config.yaml fingerprint.screen_resolutions). A screen smaller than the
+# chosen viewport means the browser window is clipped by the X server while
+# window.screen still reports the spoofed size — an inconsistency that is
+# both a rendering hazard and a fingerprinting signal.
+ExecStart=/usr/bin/Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset
 Restart=always
 RestartSec=3
 

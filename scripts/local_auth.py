@@ -117,7 +117,7 @@ async def main():
             pages = context.pages
             page = pages[0] if pages else await context.new_page()
         except Exception as e:
-            print(f"\n❌ Error: Could not connect to Chrome on port 9222.")
+            print(f"\n[!] Error: Could not connect to Chrome on port 9222.")
             print("Make sure you closed all Chrome windows and ran the exact command specified above.")
             print(f"Details: {e}")
             sys.exit(1)
@@ -137,7 +137,7 @@ async def main():
             if not logged_in:
                 print("Not logged in yet. Please log in to your account in the browser...")
             
-        print("\n🎉 Login detected successfully!")
+        print("\n[+] Login detected successfully!")
         
         # Save cookies to local DB
         cookies = await context.cookies()
@@ -176,11 +176,11 @@ async def main():
             await db.execute("DELETE FROM cookies WHERE domain = ?", ("fiverr.com",))
             await db.execute(
                 "INSERT INTO cookies (domain, data, saved_at, expires) VALUES (?, ?, ?, ?)",
-                ("fiverr.com", stored, datetime.utcnow().isoformat(), expires_dt),
+                ("fiverr.com", stored, datetime.now(timezone.utc).isoformat(), expires_dt),
             )
             await db.commit()
 
-        print(f"✓ Cookies encrypted and saved to: {db_file}")
+        print(f"[+] Cookies encrypted and saved to: {db_file}")
         print("You can close the browser window now.")
         await browser.close()
         print("==================================================")

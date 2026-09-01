@@ -18,17 +18,29 @@ log = get_logger("actions")
 
 
 async def visit_profile(page: Page) -> bool:
-    """Navigate to the user's own profile page."""
+    """Navigate to the user's dashboard and profile page."""
     cfg = load_config()
+    base_url = cfg["target"].get("base_url", "https://www.fiverr.com")
     profile_url = cfg["target"].get("profile_url", "")
+    
+    # 1. Visit seller dashboard (crucial for seller online presence)
+    dashboard_url = f"{base_url}/dashboard"
+    try:
+        log.info("actions.visiting_dashboard", url=dashboard_url)
+        await page.goto(dashboard_url, wait_until="domcontentloaded", timeout=45000)
+        await asyncio.sleep(random.uniform(3, 8))
+        await natural_page_browse(page, read_time_seconds=random.uniform(10, 20))
+    except Exception as e:
+        log.warning("actions.visit_dashboard_failed", error=str(e))
+
+    # 2. Visit public profile
     if not profile_url:
-        log.error("actions.no_profile_url")
-        return False
+        return True
     try:
         log.info("actions.visiting_profile", url=profile_url)
         await page.goto(profile_url, wait_until="domcontentloaded", timeout=45000)
         await asyncio.sleep(random.uniform(2, 5))
-        await natural_page_browse(page, read_time_seconds=random.uniform(10, 30))
+        await natural_page_browse(page, read_time_seconds=random.uniform(10, 20))
         return True
     except Exception as e:
         log.warning("actions.visit_profile_failed", error=str(e))

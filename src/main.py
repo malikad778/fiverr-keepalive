@@ -69,9 +69,16 @@ async def run_daemon():
     health   = HealthMonitor()
     recovery = RecoveryManager(health)
 
+    # Declared here so _shutdown can close over it. Previously this used
+    # `'simulator' in dir()`, which inside a nested function inspects that
+    # function's own locals — always empty, so the condition was never true
+    # and stop() was never called (and would not have been awaited anyway).
+    simulator = None
+
     async def _shutdown(signame: str):
         log.info("main.shutdown_signal", signal=signame)
-        simulator.stop() if 'simulator' in dir() else None
+        if simulator is not None:
+            await simulator.stop()
         await engine.stop()
 
     # Register signal handlers
@@ -96,22 +103,31 @@ async def run_daemon():
             log.info("main.ensuring_session")
             session_ok = await ensure_logged_in(page, context)
             if not session_ok:
-                log.error("main.cannot_establish_session")
-                await engine.stop()
+                # Usually this means PerimeterX is blocking the page, not that
+                # anything is misconfigured. Relaunching Chromium every 60s
+                # just feeds more blocked requests to an already-escalated
+                # visitor, so back off hard and give the block time to decay.
                 restart_attempts += 1
-                await asyncio.sleep(60)
+                backoff = min(900, 60 * (2 ** (restart_attempts - 1)))
+                log.error("main.cannot_establish_session",
+                          attempt=restart_attempts, backoff_seconds=backoff)
+                await engine.stop()
+                await asyncio.sleep(backoff)
                 continue
 
             log.info("main.session_ready")
 
             # ── 5. Start Behavior Simulator ───────────────
             simulator = BehaviorSimulator(page)
+            await simulator.start()
 
-            # ── 6. Run simulator + health monitor concurrently ──
-            await asyncio.gather(
-                simulator.run(),
-                _health_loop(health, recovery, page, context, simulator, engine),
-            )
+            # ── 6. Health monitor drives the lifetime; the simulator runs
+            #      as its own cancellable task rather than a gather() arm,
+            #      so it can be stopped and restarted cleanly.
+            try:
+                await _health_loop(health, recovery, page, context, simulator, engine)
+            finally:
+                await simulator.stop()
 
         except asyncio.CancelledError:
             log.info("main.cancelled")
@@ -149,14 +165,16 @@ async def _health_loop(
 
         if not result["ok"]:
             log.warning("health_loop.unhealthy", result=result)
+            # stop() now waits for the cycle to actually exit, so recovery
+            # never runs concurrently with a live cycle on the same page.
             await simulator.stop()
             recovered = await recovery.handle_unhealthy(page, context, result)
             if recovered:
                 # Save fresh cookies after recovery
                 await save_cookies(context)
-                # Restart simulator
-                simulator.__init__(page)
-                asyncio.create_task(simulator.run())
+                # Restart via the owned task. Re-calling __init__() and
+                # spawning a bare create_task() left the previous loop alive.
+                await simulator.start()
             else:
                 log.error("health_loop.recovery_failed_restarting_browser")
                 await engine.stop()

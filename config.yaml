@@ -6,13 +6,19 @@
 target:
   base_url: "https://www.fiverr.com"
   profile_path: "/users/{username}"     # filled from .env USERNAME
-  ping_interval_seconds: 480            # how often to touch the site (8 min)
+  ping_interval_seconds: 10             # short interval for rapid challenge trigger test
   session_refresh_hours: 6              # full session re-warm every 6 hours
 
 # ── Browser ───────────────────────────────────────────────
 browser:
   type: "chromium"                      # chromium | firefox
-  headless: true                        # false during first-run only
+  # MUST stay false. PerimeterX ignores the press-and-hold entirely in
+  # headless Chromium — the button renders but the handler never reacts, so
+  # every solve fails with no progress animation. Verified on 2026-09-01:
+  # identical solver, same IP, headless=fail / headed=solved on attempt 1.
+  # The systemd unit provides DISPLAY=:99 (Xvfb 1366x768x24), so "headed"
+  # costs nothing on the server.
+  headless: false
   slow_mo_ms: 0                         # add ms delay between ops (0 = off)
   viewport:
     width: 1366
@@ -83,8 +89,8 @@ behavior:
 
   # Idle cycles
   idle:
-    min_idle_seconds: 30
-    max_idle_seconds: 180
+    min_idle_seconds: 5
+    max_idle_seconds: 10
     simulate_tab_switch: true           # blur/focus events
     simulate_typing_pause: true
 
@@ -101,6 +107,17 @@ session:
   cookie_encrypt: true                  # encrypt cookies at rest
   auto_recover: true                    # re-login if session expires
   max_recovery_attempts: 3
+  # Allow challenge recovery to wipe Fiverr cookies + re-login?
+  # Keep false while the account has MFA: there is no unattended way back in,
+  # so a wipe turns a challenged-but-valid session into one only a human can
+  # restore. Recovery falls back to reload + re-solve, which is lossless.
+  # Flip to true only if automated login is ever proven to work end to end.
+  allow_cookie_wipe: false
+  # Drop PerimeterX identity cookies (_px*, pxcts) when restoring a session.
+  # A flagged _pxvid makes PX refuse to render a solvable challenge even from
+  # a clean IP, which is unrecoverable; a fresh visitor just gets challenged
+  # normally and can solve it. Costs the stored clearance token — worth it.
+  strip_px_cookies: true
 
 # ── Health Monitor ────────────────────────────────────────
 monitor:
