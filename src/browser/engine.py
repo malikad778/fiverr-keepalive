@@ -166,15 +166,27 @@ class BrowserEngine:
         return random.choice(ua_pool)
 
     def _build_headers(self) -> dict:
+        """
+        Extra headers applied to EVERY request — so only put things here that
+        are correct for every request type.
+
+        Sec-Fetch-*, Accept, Accept-Encoding and Upgrade-Insecure-Requests
+        used to be forced here. They are per-request metadata: Chromium sends
+        `Sec-Fetch-Dest: script` for a script, `image` for an image, and so
+        on. Pinning them to the values for a top-level navigation made every
+        subresource request self-describe as a document navigation, which is
+        both trivially detectable and actively broken.
+
+        It broke PerimeterX specifically: its captcha.js and challenge iframes
+        never loaded, so the block page rendered "Error. Failed to display
+        challenge." with no widget to press. Bisected 2026-09-01 — dropping
+        these headers took the page from frames=1/no target to frames=7-8 with
+        the press-and-hold control found, same IP, same cookies, minutes apart.
+
+        Accept-Language is safe: it is genuinely constant across requests.
+        """
         return {
-            "Accept-Language":  "en-US,en;q=0.9",
-            "Accept-Encoding":  "gzip, deflate, br",
-            "Accept":           "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest":   "document",
-            "Sec-Fetch-Mode":   "navigate",
-            "Sec-Fetch-Site":   "none",
-            "Sec-Fetch-User":   "?1",
+            "Accept-Language": "en-US,en;q=0.9",
         }
 
     async def _apply_cdp_overrides(self):
