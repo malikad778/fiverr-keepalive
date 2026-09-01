@@ -1,0 +1,146 @@
+# =============================================================
+#  Fiverr Keepalive - Master Configuration
+# =============================================================
+
+# ── Target ────────────────────────────────────────────────
+target:
+  base_url: "https://www.fiverr.com"
+  profile_path: "/users/{username}"     # filled from .env USERNAME
+  ping_interval_seconds: 10             # short interval for rapid challenge trigger test
+  session_refresh_hours: 6              # full session re-warm every 6 hours
+
+# ── Browser ───────────────────────────────────────────────
+browser:
+  type: "chromium"                      # chromium | firefox
+  # MUST stay false. PerimeterX ignores the press-and-hold entirely in
+  # headless Chromium - the button renders but the handler never reacts, so
+  # every solve fails with no progress animation. Verified on 2026-09-01:
+  # identical solver, same IP, headless=fail / headed=solved on attempt 1.
+  # The systemd unit provides DISPLAY=:99 (Xvfb 1366x768x24), so "headed"
+  # costs nothing on the server.
+  headless: false
+  slow_mo_ms: 0                         # add ms delay between ops (0 = off)
+  viewport:
+    width: 1366
+    height: 768
+  user_data_dir: "./session/profile"    # persistent Chrome profile dir
+  # Controlled relaunch. Chromium's RSS climbs with uptime (~740MB after 4.5h
+  # observed) and the systemd unit caps the cgroup, so without this it gets
+  # OOM-killed mid-cycle at an unpredictable moment. Recycling below the cap
+  # turns that into a clean restart that reloads cookies and continues.
+  # Keep recycle_memory_mb comfortably under the unit's MemoryMax.
+  recycle_hours: 6                      # relaunch after N hours uptime (primary trigger)
+  # Safety net only - must sit well ABOVE normal steady state, or it fires
+  # constantly and every recycle costs a fresh challenge solve. Measured on
+  # this host: ~280MB at launch, ~730MB by 11min, ~740MB plateau at 4.5h.
+  # 1200 leaves real headroom over that plateau while still catching runaway
+  # growth before MemoryMax (1500M in the unit) turns into an OOM kill.
+  recycle_memory_mb: 1200
+  locale: "en-US"
+  timezone: "America/New_York"          # must match proxy country
+
+# ── Stealth ───────────────────────────────────────────────
+stealth:
+  patch_webdriver_flag: true
+  patch_navigator_plugins: true
+  patch_canvas_fingerprint: true
+  patch_webgl: true
+  patch_audio_context: true
+  patch_fonts: true
+  patch_permissions: true
+  patch_chrome_runtime: true
+  patch_hardware_concurrency: true
+  hardware_concurrency: 8
+  device_memory_gb: 8
+
+# ── Fingerprint Pool ──────────────────────────────────────
+fingerprint:
+  # Randomly chosen per session from pool
+  screen_resolutions:
+    - [1920, 1080]
+    - [1366, 768]
+    - [1536, 864]
+    - [1440, 900]
+    - [1280, 800]
+  platforms:
+    - "Win32"
+    - "MacIntel"
+    - "Linux x86_64"
+  webgl_vendors:
+    - "Google Inc. (NVIDIA)"
+    - "Google Inc. (Intel)"
+    - "Google Inc. (AMD)"
+  webgl_renderers:
+    - "ANGLE (NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0)"
+    - "ANGLE (Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0)"
+    - "ANGLE (AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0)"
+
+# ── Proxy ─────────────────────────────────────────────────
+proxy:
+  enabled: false
+  provider: "none"                # brightdata | oxylabs | smartproxy | none
+  rotation_strategy: "sticky_session"   # sticky_session | per_request | timed
+  sticky_session_minutes: 30            # keep same IP for 30 min then rotate
+  health_check_url: "https://api.ipify.org"
+  fallback_to_direct: true             # Allow direct connection
+
+# ── Behavior Simulation ───────────────────────────────────
+behavior:
+  # Mouse movement
+  mouse:
+    bezier_points: 8                    # control points for curve
+    min_duration_ms: 800
+    max_duration_ms: 2400
+    micro_jitter: true                  # tiny random offsets while hovering
+
+  # Scrolling
+  scroll:
+    style: "natural"                    # natural | aggressive | lazy
+    scroll_back_probability: 0.35       # 35% chance to scroll up a bit
+    pause_on_content_probability: 0.6   # pause as if reading
+
+  # Idle cycles
+  idle:
+    min_idle_seconds: 5
+    max_idle_seconds: 10
+    simulate_tab_switch: true           # blur/focus events
+    simulate_typing_pause: true
+
+  # Active session actions
+  actions:
+    browse_explore_probability: 0.4     # browse discover/categories
+    view_gig_probability: 0.35          # open a random gig
+    check_messages_probability: 0.15    # visit inbox
+    check_notifications_probability: 0.1
+
+# ── Session ───────────────────────────────────────────────
+session:
+  db_path: "./session/store.db"
+  cookie_encrypt: true                  # encrypt cookies at rest
+  auto_recover: true                    # re-login if session expires
+  max_recovery_attempts: 3
+  # Allow challenge recovery to wipe Fiverr cookies + re-login?
+  # Keep false while the account has MFA: there is no unattended way back in,
+  # so a wipe turns a challenged-but-valid session into one only a human can
+  # restore. Recovery falls back to reload + re-solve, which is lossless.
+  # Flip to true only if automated login is ever proven to work end to end.
+  allow_cookie_wipe: false
+  # Drop PerimeterX identity cookies (_px*, pxcts) when restoring a session.
+  # A flagged _pxvid makes PX refuse to render a solvable challenge even from
+  # a clean IP, which is unrecoverable; a fresh visitor just gets challenged
+  # normally and can solve it. Costs the stored clearance token - worth it.
+  strip_px_cookies: true
+
+# ── Health Monitor ────────────────────────────────────────
+monitor:
+  check_interval_seconds: 600           # check every 10 min
+  cloudwatch_enabled: false             # set true if AWS creds present
+  cloudwatch_log_group: "fiverr-keepalive"
+  alert_email: ""                       # optional: set in .env
+  log_level: "INFO"                     # DEBUG | INFO | WARNING | ERROR
+
+# ── Recovery ─────────────────────────────────────────────
+recovery:
+  restart_on_crash: true
+  max_crashes_per_hour: 5
+  backoff_seconds: [30, 60, 120, 300, 600]

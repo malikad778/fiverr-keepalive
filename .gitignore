@@ -1,0 +1,30 @@
+# Fiverr Keepalive - Git Ignore
+.env
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+session/store.db
+session/profile/
+logs/*.log
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.swp
+*.swo
+chrome_debug_profile/
+*.tar.gz
+setup.log
+
+# Diagnostic output - block-page screenshots and JSON dumps contain the
+# server's public IP and PerimeterX trace ids. Regenerate with
+# scripts/capture_challenge.py rather than committing them.
+diagnostics/
+screenshot.png
+/session/
+!/session/.gitkeep

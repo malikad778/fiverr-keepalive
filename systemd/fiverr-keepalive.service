@@ -1,0 +1,47 @@
+[Unit]
+Description=Fiverr Keepalive Daemon
+Documentation=https://github.com/your-repo/fiverr-keepalive
+After=network-online.target xvfb.service
+Wants=network-online.target
+Requires=xvfb.service
+
+[Service]
+Type=simple
+User=keepalive
+Group=keepalive
+WorkingDirectory=/opt/fiverr-keepalive
+EnvironmentFile=/opt/fiverr-keepalive/.env
+Environment="DISPLAY=:99"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+
+ExecStart=/opt/fiverr-keepalive/venv/bin/python -m src.main
+
+# Restart policy - always restart unless manually stopped
+Restart=always
+RestartSec=30
+StartLimitInterval=3600
+StartLimitBurst=10
+
+# Resource limits
+# Must stay above browser.recycle_memory_mb in config.yaml (currently 1200M).
+# Chromium plateaus near 740M in normal operation, so the recycle threshold
+# sits above that and this cap above the threshold — leaving headroom for the
+# old browser to shut down while the replacement starts, so a planned recycle
+# never trips the cgroup limit and turns into an OOM kill.
+MemoryMax=1500M
+CPUQuota=50%
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/fiverr-keepalive
+PrivateTmp=yes
+
+# Output to journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fiverr-keepalive
+
+[Install]
+WantedBy=multi-user.target

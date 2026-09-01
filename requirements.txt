@@ -1,0 +1,31 @@
+# ── Core Browser ─────────────────────────────────────────
+playwright==1.44.0
+playwright-stealth==1.0.6
+
+# ── HTTP / Networking ─────────────────────────────────────
+httpx[http2]==0.27.0
+aiohttp==3.9.5
+requests==2.32.3
+
+# ── Session / Storage ────────────────────────────────────
+cryptography==42.0.8
+aiosqlite==0.20.0
+
+# ── Configuration ─────────────────────────────────────────
+python-dotenv==1.0.1
+PyYAML==6.0.1
+
+# ── Behavior / Math ──────────────────────────────────────
+numpy==1.26.4
+scipy==1.13.1
+
+# ── Monitoring / Logging ─────────────────────────────────
+structlog==24.2.0
+boto3==1.34.131
+rich==13.7.1
+
+# ── Utilities ────────────────────────────────────────────
+tenacity==8.3.0
+schedule==1.2.2
+psutil==5.9.8
+python-dateutil==2.9.0
